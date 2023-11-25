@@ -1,0 +1,57 @@
+
+参考：http://machoto2.g2.xrea.com/page/P14K50/P14_B05.htm
+
+//---------------------------------------------------------
+//  CCP PWM機能による正弦波の発生 <polling>
+//      CCP  →  PWM機能で sin波を発生させる
+//  Notes:  32MhzM内部クロック Timer2 PR2 250
+//      PWM周期は32KHz、デューティは250段階。PWM周期ごとに、
+//      デューティを正弦波になるよう、変更していく。
+//      変更を、40PWM周期で一巡すれば、32KHz/40 = 800Hzとなり、
+//      9°毎のSIN関数をデューティにセットすればよい。
+//          RC2        signalOut P1D
+//          RC3        signalOut P1C
+//          RC4        signalOut P1B
+//          RC5        signalOut P1A
+//  Language: MPLAB xc8   Target: PIC18F14K50
+//--------------------------------------------------------
+#include <xc.h>
+#define _XTAL_FREQ 32000000      //　delay_ms(x) のための定義
+//-------------- コンフィグレーション ----------------------
+#pragma config MCLRE  = OFF, PWRTEN = OFF, BOREN  = OFF, BORV = 30
+#pragma config WDTEN  = OFF, WDTPS  = 32768, STVREN = ON
+#pragma config FOSC   = IRC, PLLEN  = ON
+#pragma config CPUDIV = NOCLKDIV, USBDIV = OFF
+#pragma config FCMEN  = OFF, IESO   = OFF, HFOFST = OFF, LVP = OFF
+#pragma config XINST  = OFF, BBSIZ  = OFF
+#pragma config CP0    = OFF, CP1    = OFF, CPB    = OFF
+#pragma config WRT0   = OFF, WRT1   = OFF, WRTB   = OFF, WRTC = OFF
+#pragma config EBTR0  = OFF, EBTR1  = OFF, EBTRB  = OFF
+
+// ----------- 正弦波高のデータ -----------
+const unsigned char sinValue[] =
+   {
+    125,145,164,182,198,213,226,236,244,248,
+    250,248,244,236,226,213,198,182,164,145,
+    125,105, 86, 68, 52, 37, 24, 14,  6,  2,
+      0,  2,  6, 14, 24, 37, 52, 68, 86,105
+    };					// デューティは250段階なので真ん中の125をsinカーブの0にしている。
+//----------------------メインプログラム------------------
+void main(void){
+    unsigned char cntDiv = 0;
+	OSCCON = 0b01100000;            // 内部クロック8Mhz x　PLL４
+    TRISC  = 0b11000011;                // PortC  RC2,3,4,5出力
+// --------------- CCPの 設定 --------------------
+    CCP1CON = 0b00001100;               // シングルアウト,正論理
+    CCPR1L  = 0b00000000;               // Duty Cycle
+    PSTRCON = 0b00001111;               // PWM出力はP1A,B,C,Dピン
+    T2CON   = 0b00000100;               //  PreS 1/1, Post 1/1
+    PR2     = 0b11111001;               // PWM 周期 249
+// ---------------------------------------------
+    while(1){
+        while(PIR1bits.TMR2IF == 0){};    // Timer2(1/32k sec)の一致を待つ。PIR1bits.TMR2IF == 0だったらwhile(1)となり{}して評価へ戻る。PIR1bits.TMR2IF == 1だったら、次の行へ
+        PIR1bits.TMR2IF = 0;            // 一致フラッグをクリア
+        CCPR1L = sinValue[cntDiv++];    // 9°毎の正弦波高を更新。テーブルを参照しCCPR1Lへduty入れてcntDivを1進める。
+        if(cntDiv >= 40)cntDiv = 0;     // 360°/9°= 40で繰り返す。40になったらcntDivのテーブルを1つ目にもどす。
+    }					// これを40回繰り返してやっと1周期となる。
+}
