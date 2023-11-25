@@ -1,5 +1,6 @@
 
-参考：http://machoto2.g2.xrea.com/page/P14K50/P14_B05.htm
+参考プログラム：http://machoto2.g2.xrea.com/page/P14K50/P14_B05.htm
+モールスの速さ：https://jh4vaj.com/archives/10328
 
 //---------------------------------------------------------
 //  CCP PWM機能による正弦波の発生 <polling>
@@ -36,9 +37,18 @@ const unsigned char sinValue[] =
     125,105, 86, 68, 52, 37, 24, 14,  6,  2,
       0,  2,  6, 14, 24, 37, 52, 68, 86,105
     };					// デューティは250段階なので真ん中の125をsinカーブの0にしている。
+
+//------------モールス符号の配列------------
+const unsigned char Morse[] =
+   {
+    1,0,1,0,0,0,1,0,1,0,1,0,0,0
+    };					// MOを打つための配列。1はツー、0はト1個分の休止
 //----------------------メインプログラム------------------
 void main(void){
     unsigned char cntDiv = 0;
+    unsigned char MO = 0;
+    unsigned char i = 0;
+    unsigned char ii = 0;
 	OSCCON = 0b01100000;            // 内部クロック8Mhz x　PLL４
     TRISC  = 0b11000011;                // PortC  RC2,3,4,5出力
 // --------------- CCPの 設定 --------------------
@@ -49,9 +59,23 @@ void main(void){
     PR2     = 0b11111001;               // PWM 周期 249
 // ---------------------------------------------
     while(1){
-        while(PIR1bits.TMR2IF == 0){};    // Timer2(1/32k sec)の一致を待つ。PIR1bits.TMR2IF == 0だったらwhile(1)となり{}して評価へ戻る。PIR1bits.TMR2IF == 1だったら、次の行へ
-        PIR1bits.TMR2IF = 0;            // 一致フラッグをクリア
-        CCPR1L = sinValue[cntDiv++];    // 9°毎の正弦波高を更新。テーブルを参照しCCPR1Lへduty入れてcntDivを1進める。
-        if(cntDiv >= 40)cntDiv = 0;     // 360°/9°= 40で繰り返す。40になったらcntDivのテーブルを1つ目にもどす。
-    }					// これを40回繰り返してやっと1周期となる。
+	if(Morse[MO] == 1){
+		for(ii=1;<=32;ii=ii++){
+			for(i=1;<=10;i=i++){		//32*10=320周期分ループさせて400msの長点を作る。800Hz*0.4s=320T
+        		while(PIR1bits.TMR2IF == 0){};    // Timer2(1/32k sec)の一致を待つ。PIR1bits.TMR2IF == 0だったらwhile(1)となり{}して評価へ戻る。PIR1bits.TMR2IF == 1だったら、次の行へ
+        		PIR1bits.TMR2IF = 0;            // 一致フラッグをクリア
+	        	CCPR1L = sinValue[cntDiv++];    // 9°毎の正弦波高を更新。テーブルを参照しCCPR1Lへduty入れてcntDivを1進める。
+	        	if(cntDiv >= 40)cntDiv = 0;     // 360°/9°= 40で繰り返す。40になったらcntDivのテーブルを1つ目にもどす。
+		    	}					// これを40回繰り返してやっと1周期となる。
+		}
+	MO = MO++;		//配列を進める
+	if(MO >= 14)MO = 0;	//配列の最後まで来たらリセット
+	}
+	else{
+	CCPR1L = 0;		//dutyを0にして無音にする。
+	__delay_ms(133);	//点1個分待つ
+	MO = MO++;		//配列を進める
+	if(MO >= 14)MO = 0;	//配列の最後まで来たらリセット
+	}
+    }
 }
