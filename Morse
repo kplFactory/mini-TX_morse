@@ -63,19 +63,18 @@ void main(void){
 		for(ii=1;<=32;ii=ii++){
 			for(i=1;<=10;i=i++){		//32*10=320周期分ループさせて400msの長点を作る。800Hz*0.4s=320T
         		while(PIR1bits.TMR2IF == 0){};    // Timer2(1/32k sec)の一致を待つ。PIR1bits.TMR2IF == 0だったらwhile(1)となり{}して評価へ戻る。PIR1bits.TMR2IF == 1だったら、次の行へ
-        		PIR1bits.TMR2IF = 0;            // 一致フラッグをクリア
+        		PIR1bits.TMR2IF = 0;            // Timer2の一致フラッグをクリア
 	        	CCPR1L = sinValue[cntDiv++];    // 9°毎の正弦波高を更新。テーブルを参照しCCPR1Lへduty入れてcntDivを1進める。
 	        	if(cntDiv >= 40)cntDiv = 0;     // 360°/9°= 40で繰り返す。40になったらcntDivのテーブルを1つ目にもどす。
 		    	}					// これを40回繰り返してやっと1周期となる。
-		}
-	MO = MO++;		//配列を進める
-	if(MO >= 17)MO = 0;	//配列の最後まで来たらリセット
+		}	
 	}
 	else{
 	CCPR1L = 0;		//dutyを0にして無音にする。
-	__delay_ms(133);	//点1個分待つ
-	MO = MO++;		//配列を進める
-	if(MO >= 14)MO = 0;	//配列の最後まで来たらリセット
+	__delay_ms(133);	//短点1個分待つ
+	PIR1bits.TMR2IF = 0;	//Timer2の一致フラッグをクリア
 	}
+    MO++;		//モールス符号の配列を進める
+    if(MO >= 17)MO = 0;	//配列の最後MO[17]まで来たらリセット
     }
 }
