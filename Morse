@@ -47,8 +47,6 @@ const unsigned char Morse[] =
 void main(void){
     unsigned char cntDiv = 0;
     unsigned char MO = 0;
-    unsigned char i = 0;
-    unsigned char ii = 0;
 	OSCCON = 0b01100000;            // 内部クロック8Mhz x　PLL４
     TRISC  = 0b11000011;                // PortC  RC2,3,4,5出力
 // --------------- CCPの 設定 --------------------
@@ -60,8 +58,8 @@ void main(void){
 // ---------------------------------------------
     while(1){
 	if(Morse[MO] == 1){
-		for(ii=1;<=32;ii=ii++){
-			for(i=1;<=10;i=i++){		//32*10=320周期分ループさせて400msの長点を作る。800Hz*0.4s=320T
+		for(int ii=0;ii<32;ii++){
+			for(int i=0;i<10;i++){		//32*10=320周期分ループさせて400msの長点を作る。800Hz*0.4s=320T
         		while(PIR1bits.TMR2IF == 0){};    // Timer2(1/32k sec)の一致を待つ。PIR1bits.TMR2IF == 0だったらwhile(1)となり{}して評価へ戻る。PIR1bits.TMR2IF == 1だったら、次の行へ
         		PIR1bits.TMR2IF = 0;            // Timer2の一致フラッグをクリア
 	        	CCPR1L = sinValue[cntDiv++];    // 9°毎の正弦波高を更新。テーブルを参照しCCPR1Lへduty入れてcntDivを1進める。
