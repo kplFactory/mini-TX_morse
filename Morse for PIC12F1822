@@ -1,1 +1,83 @@
-PIC12F1822で動作するようにConfigを変更する。
+//PIC12F1822で動作するようにConfigを変更する。
+//参考プログラム：http://machoto2.g2.xrea.com/page/P14K50/P14_B05.htm
+//モールスの速さ：https://jh4vaj.com/archives/10328
+//PIC12F1822 Data sheet : https://ww1.microchip.com/downloads/jp/devicedoc/41413c_jp.pdf
+//PIC18F14K50 Data sheet : https://ww1.microchip.com/downloads/aemDocuments/documents/OTH/ProductDocuments/DataSheets/40001350F.pdf
+
+//---------------------------------------------------------
+//  CCP PWM機能による正弦波の発生 <polling>
+//      CCP  →  PWM機能で sin波を発生させる
+//  Notes:  32MhzM内部クロック Timer2 PR2 250
+//      PWM周期は32KHz、デューティは250段階。PWM周期ごとに、
+//      デューティを正弦波になるよう、変更していく。
+//      変更を、40PWM周期で一巡すれば、32KHz/40 = 800Hzとなり、
+//      9°毎のSIN関数をデューティにセットすればよい。
+//          RC2        signalOut P1D >> NA
+//          RC3        signalOut P1C >> NA
+//          RC4        signalOut P1B >> NA
+//          RC5        signalOut P1A >> RA2 signalOut P1A
+//  Language: MPLAB xc8   Target: PIC18F14K50 -> PIC12F1822
+//--------------------------------------------------------
+#include <xc.h>
+#define _XTAL_FREQ 32000000      //　delay_ms(x) のための定義
+//-------------- コンフィグレーション ----------------------
+#pragma config MCLRE  = OFF, PWRTEN = OFF, BOREN  = OFF, BORV = 30
+#pragma config WDTEN  = OFF, WDTPS  = 32768, STVREN = ON
+#pragma config FOSC   = IRC, PLLEN  = ON  //FOSC変更必要?
+#pragma config CPUDIV = NOCLKDIV, USBDIV = OFF
+#pragma config FCMEN  = OFF, IESO   = OFF, HFOFST = OFF, LVP = OFF
+#pragma config XINST  = OFF, BBSIZ  = OFF
+#pragma config CP0    = OFF, CP1    = OFF, CPB    = OFF
+#pragma config WRT0   = OFF, WRT1   = OFF, WRTB   = OFF, WRTC = OFF
+#pragma config EBTR0  = OFF, EBTR1  = OFF, EBTRB  = OFF
+
+// ----------- 正弦波高のデータ -----------
+const unsigned char sinValue[] =
+   {
+    125,145,164,182,198,213,226,236,244,248,
+    250,248,244,236,226,213,198,182,164,145,
+    125,105, 86, 68, 52, 37, 24, 14,  6,  2,
+      0,  2,  6, 14, 24, 37, 52, 68, 86,105
+    };					// デューティは250段階なので真ん中の125をsinカーブの0にしている。
+
+//------------モールス符号の配列------------
+const unsigned char Morse[] =
+   {
+    1,0,1,0,0,0,1,0,1,0,1,0,0,0,0,0,0,0
+    };					// MOを打つための配列。1はツー、0はト1個分の休止
+//----------------------メインプログラム------------------
+void main(void){
+    unsigned char cntDiv = 0;
+    unsigned char MO = 0;
+//    OSCCON = 0b01100000;            // 内部クロック8Mhz x　PLL4 >> レジスタ異なるため変更、PLLEN有効の場合で設定
+    OSCCON = 0b01110000;
+//    TRISC  = 0b11000011;        // PortC  RC2,3,4,5出力 >> PortA  RA2出力へ
+    TRISA  = 0b00111011;          //bit7-6未実装
+// --------------- CCPの 設定 --------------------
+    CCP1CON = 0b00001100;               // シングルアウト,正論理　>> 変更不要
+    CCPR1L  = 0b00000000;               // Duty Cycle >> 変更不要
+//    PSTRCON = 0b00001111;               // PWM出力はP1A,B,C,Dピン >> PSTR1CONに変更、PWM出力はP1A
+    PSTR1CON = 0b00000001;
+    T2CON   = 0b00000100;               //  PreS 1/1, Post 1/1 >> 変更不要
+    PR2     = 0b11111001;               // PWM 周期 249 >> 多分変更不要、少し勉強必要
+// ---------------------------------------------
+    while(1){
+	if(Morse[MO] == 1){
+		for(int ii=0;ii<32;ii++){
+			for(int i=0;i<10;i++){		//32*10=320周期分ループさせて400msの長点を作る。800Hz*0.4s=320T
+        		while(PIR1bits.TMR2IF == 0){};    // Timer2(1/32k sec)の一致を待つ。PIR1bits.TMR2IF == 0だったらwhile(1)となり{}して評価へ戻る。PIR1bits.TMR2IF == 1だったら、次の行へ
+        		PIR1bits.TMR2IF = 0;            // Timer2の一致フラッグをクリア
+	        	CCPR1L = sinValue[cntDiv++];    // 9°毎の正弦波高を更新。テーブルを参照しCCPR1Lへduty入れてcntDivを1進める。
+	        	if(cntDiv >= 40)cntDiv = 0;     // 360°/9°= 40で繰り返す。40になったらcntDivのテーブルを1つ目にもどす。
+		    	}					// これを40回繰り返してやっと1周期となる。
+		}	
+	}
+	else{
+	CCPR1L = 0;		//dutyを0にして無音にする。
+	__delay_ms(133);	//短点1個分待つ
+	PIR1bits.TMR2IF = 0;	//Timer2の一致フラッグをクリア
+	}
+    MO++;		//モールス符号の配列を進める
+    if(MO >= 17)MO = 0;	//配列の最後MO[17]まで来たらリセット
+    }
+}
