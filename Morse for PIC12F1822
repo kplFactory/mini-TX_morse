@@ -21,15 +21,12 @@
 #include <xc.h>
 #define _XTAL_FREQ 32000000      //　delay_ms(x) のための定義
 //-------------- コンフィグレーション ----------------------
-#pragma config MCLRE  = OFF, PWRTEN = OFF, BOREN  = OFF, BORV = 30
-#pragma config WDTEN  = OFF, WDTPS  = 32768, STVREN = ON
-#pragma config FOSC   = IRC, PLLEN  = ON  //FOSC変更必要?
-#pragma config CPUDIV = NOCLKDIV, USBDIV = OFF
-#pragma config FCMEN  = OFF, IESO   = OFF, HFOFST = OFF, LVP = OFF
-#pragma config XINST  = OFF, BBSIZ  = OFF
-#pragma config CP0    = OFF, CP1    = OFF, CPB    = OFF
-#pragma config WRT0   = OFF, WRT1   = OFF, WRTB   = OFF, WRTC = OFF
-#pragma config EBTR0  = OFF, EBTR1  = OFF, EBTRB  = OFF
+#pragma config MCLRE  = OFF, PWRTE = OFF, BOREN = ON, BORV = LO
+#pragma config WDTE  = OFF, STVREN = ON
+#pragma config FOSC  = INTOSC, PLLEN = ON
+#pragma config FCMEN  = OFF, IESO   = OFF, LVP = OFF
+#pragma config CP = OFF, CPD = OFF
+#pragma config WRT = OFF, CLKOUTEN = OFF
 
 // ----------- 正弦波高のデータ -----------
 const unsigned char sinValue[] =
